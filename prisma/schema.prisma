@@ -1,0 +1,661 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+///////////////////////
+// ENUMS
+///////////////////////
+
+enum OfferType {
+  SELL
+  LEND
+  RENT
+  SHARE
+  EXCHANGE
+}
+
+enum TradeStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  OVERDUE
+  CANCELLED
+  IN_PROGRESS
+}
+
+enum ReminderType {
+  RETURN_DUE
+  PICKUP_DUE
+  OFFER_EXPIRY
+  PAYMENT_DUE
+  CUSTOM
+}
+
+enum ReviewType {
+  UNIVERSAL_STUFF
+  THANK_YOU_MESSAGE
+  USER_RATING
+}
+
+enum ItemCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum StuffType {
+  BOOK
+  STATIONERY
+  ELECTRONICS
+  NOTES
+  OTHER
+}
+
+enum BookType {
+  TEXTBOOK
+  REFERENCE
+  NOVEL
+  JOURNAL
+  MAGAZINE
+  WORKBOOK
+  GUIDE
+}
+
+enum StationeryType {
+  WRITING
+  DRAWING
+  CALCULATION
+  STORAGE
+  CRAFT
+  OTHER
+}
+
+enum UrgencyLevel {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum RequestStatus {
+  OPEN
+  MATCHED
+  FULFILLED
+  CLOSED
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum NotificationType {
+  TRADE_REQUEST
+  TRADE_ACCEPTED
+  TRADE_REJECTED
+  REMINDER
+  REVIEW
+  MESSAGE
+  SYSTEM
+}
+
+///////////////////////
+// CORE MODELS
+///////////////////////
+
+model User {
+  user_id           String     @id @default(cuid())
+  clerk_id          String?    @unique // For Clerk authentication
+  email             String     @unique
+  username          String?    @unique
+  password          String?
+  is_active         Boolean    @default(true)
+  last_login        DateTime?
+  created_at        DateTime   @default(now())
+  updated_at        DateTime   @updatedAt
+
+  // Relations
+  profile           Profile?
+  offers            Offer[]
+  stuff             Stuff[]
+  requests          Request[]
+  tradesAsBorrower  Trade[]    @relation("BorrowerTrades")
+  tradesAsLender    Trade[]    @relation("LenderTrades")
+  reviewsWritten    Review[]   @relation("ReviewerReviews")
+  reviewsReceived   Review[]   @relation("TargetUserReviews")
+  reminders         Reminder[]
+  activities        Activity[]
+  sentMessages      Message[]  @relation("SentMessages")
+  receivedMessages  Message[]  @relation("ReceivedMessages")
+  // transactions      Transaction[]
+  notifications     Notification[]
+  favorites         StuffFavorite[]
+
+  @@index([email])
+  @@index([clerk_id])
+}
+
+model Profile {
+  profile_id         String       @id @default(cuid())
+  user_id            String       @unique
+  full_name          String
+  display_name       String?
+  gender             String?
+  phone              String?
+  school_college_id  String?
+  class_year         String?
+  course             String?      // For college students
+  department         String?      // For college students
+  
+  // Address Details
+  address            String?
+  city               String?
+  state              String?
+  pincode            String?
+  country            String?      @default("India")
+  latitude           Float?
+  longitude          Float?
+  
+  // Profile Details
+  avatar_url         String?
+  bio                String?
+  rating_average     Float?       @default(0.0)
+  total_ratings      Int?         @default(0)
+  trust_score        Int?         @default(0)
+  
+  // Settings
+  is_verified        Boolean      @default(false)
+  show_phone         Boolean      @default(false)
+  show_address       Boolean      @default(false)
+  notification_settings Json?
+  
+  created_at         DateTime     @default(now())
+  updated_at         DateTime     @updatedAt
+
+  // Relations
+  user               User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  schoolCollege      SchoolCollege? @relation(fields: [school_college_id], references: [school_college_id])
+  // safeDetails        SafeDetails[]
+
+  @@index([latitude, longitude])
+  @@index([school_college_id])
+  @@index([city, state])
+}
+
+model SchoolCollege {
+  school_college_id  String    @id @default(cuid())
+  name               String
+  type               String    // SCHOOL / COLLEGE / UNIVERSITY
+  location           String?
+  city               String?
+  state              String?
+  pincode            String?
+  latitude           Float?
+  longitude          Float?
+  is_verified        Boolean   @default(false)
+  created_at         DateTime  @default(now())
+
+  // Relations
+  profiles           Profile[]
+  requests           Request[]
+
+  @@index([city, state])
+  @@index([name])
+}
+
+model Stuff {
+  stuff_id           String       @id @default(cuid())
+  owner_id           String
+  type               StuffType
+  
+  // Basic Details
+  title              String
+  subtitle           String?
+  description        String?
+  
+  // Book Specific Fields
+  author             String?
+  publisher          String?
+  edition            String?
+  isbn               String?
+  publication_year   Int?
+  book_type          BookType?
+  
+  // Stationery Specific Fields
+  brand              String?
+  model              String?
+  stationery_type    StationeryType?
+  
+  // Common Fields
+  language           String?      @default("English")
+  subject            String?
+  genre              String?
+  class_suitability  String?
+  condition          ItemCondition
+  original_price     Float
+  
+  // Availability
+  is_available       Boolean      @default(true)
+  quantity           Int          @default(1)
+  
+  // Media
+  images             StuffImage[]
+  
+  // Metadata
+  views_count        Int          @default(0)
+  favorites_count    Int          @default(0)
+  created_at         DateTime     @default(now())
+  updated_at         DateTime     @updatedAt
+
+  // Relations
+  owner              User         @relation(fields: [owner_id], references: [user_id])
+  offers             Offer[]
+  reviews            Review[]
+  tags               StuffTag[]
+  favorites          StuffFavorite[]
+
+  @@index([title])
+  @@index([subject])
+  @@index([type])
+  @@index([owner_id])
+  @@index([is_available])
+}
+
+model StuffImage {
+  id          String  @id @default(cuid())
+  stuff_id    String
+  url         String
+  alt_text    String?
+  is_primary  Boolean @default(false)
+  created_at  DateTime @default(now())
+
+  stuff       Stuff   @relation(fields: [stuff_id], references: [stuff_id], onDelete: Cascade)
+
+  @@index([stuff_id])
+}
+
+model Tag {
+  tag_id      String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  created_at  DateTime   @default(now())
+
+  stuffTags   StuffTag[]
+
+  @@index([name])
+}
+
+model StuffTag {
+  stuff_id    String
+  tag_id      String
+  created_at  DateTime @default(now())
+
+  stuff       Stuff    @relation(fields: [stuff_id], references: [stuff_id], onDelete: Cascade)
+  tag         Tag      @relation(fields: [tag_id], references: [tag_id], onDelete: Cascade)
+
+  @@id([stuff_id, tag_id])
+}
+
+model StuffFavorite {
+  user_id     String
+  stuff_id    String
+  created_at  DateTime @default(now())
+
+  user        User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  stuff       Stuff    @relation(fields: [stuff_id], references: [stuff_id], onDelete: Cascade)
+
+  @@id([user_id, stuff_id])
+}
+
+///////////////////////
+// TRADING MODELS
+///////////////////////
+
+model Offer {
+  offer_id                  String      @id @default(cuid())
+  stuff_id                  String
+  user_id                   String
+  offer_type                OfferType
+  
+  // Pricing
+  price                     Float?    
+  rental_price_per_day      Float?
+  rental_period_days        Int?
+  security_deposit          Float?
+  
+  // Exchange Details
+  exchange_item_description String?
+  exchange_item_value       Float?
+  
+  // Availability
+  availability_start        DateTime?
+  availability_end          DateTime?
+  is_active                 Boolean     @default(true)
+  quantity_available        Int         @default(1)
+  
+  // Location
+  pickup_address            String?
+  latitude                  Float?
+  longitude                 Float?
+  city                      String?
+  state                     String?
+  pincode                   String?
+  
+  // Visibility & Rules
+  visibility_scope          String?     @default("PUBLIC") // PUBLIC / COLLEGE / CLASS
+  terms_conditions          String?
+  special_instructions      String?
+  
+  // Metadata
+  views_count               Int         @default(0)
+  created_at                DateTime    @default(now())
+  updated_at                DateTime    @updatedAt
+  expires_at                DateTime?
+
+  // Relations
+  user                      User        @relation(fields: [user_id], references: [user_id])
+  stuff                     Stuff       @relation(fields: [stuff_id], references: [stuff_id])
+  trades                    Trade[]
+  messages                  Message[]
+
+  @@index([latitude, longitude])
+  @@index([offer_type])
+  @@index([created_at])
+  @@index([user_id])
+  @@index([is_active])
+}
+
+model Trade {
+  trade_id           String       @id @default(cuid())
+  offer_id           String
+  borrower_id        String
+  lender_id          String
+  
+  // Trade Details
+  start_date         DateTime?
+  end_date           DateTime?
+  actual_return_date DateTime?
+  agreed_price       Float?
+  security_deposit   Float?
+  late_fee           Float?
+  
+  // Status & Tracking
+  status             TradeStatus  @default(PENDING)
+  borrower_rating    Int?
+  lender_rating      Int?
+  
+  // Safety & Contact
+  pickup_code        String?      // Unique code for pickup verification
+  return_code        String?      // Unique code for return verification
+  
+  // Notes
+  borrower_notes     String?
+  lender_notes       String?
+  
+  created_at         DateTime     @default(now())
+  updated_at         DateTime     @updatedAt
+
+  // Relations
+  offer              Offer        @relation(fields: [offer_id], references: [offer_id])
+  borrower           User         @relation("BorrowerTrades", fields: [borrower_id], references: [user_id])
+  lender             User         @relation("LenderTrades", fields: [lender_id], references: [user_id])
+  // safeDetails        SafeDetails? @relation(fields: [safe_detail_id], references: [safe_detail_id])
+  // transaction        Transaction?
+
+  @@index([borrower_id])
+  @@index([lender_id])
+  @@index([status])
+  @@index([created_at])
+}
+
+model Request {
+  request_id               String        @id @default(cuid())
+  user_id                  String
+  stuff_type               StuffType
+  
+  // Request Details
+  title                    String?
+  description              String
+  subject                  String?
+  class_year               String?
+  
+  // Urgency & Timing
+  urgency_level            UrgencyLevel  @default(MEDIUM)
+  needed_by_date           DateTime?
+  rental_duration_days     Int?
+  
+  // Budget
+  max_price                Float?
+  max_rental_per_day       Float?
+  
+  // Location & Targeting
+  target_school_college_id String?
+  location_latitude        Float?
+  location_longitude       Float?
+  search_radius_km         Float?        @default(10.0)
+  
+  // Status
+  status                   RequestStatus @default(OPEN)
+  
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+  expires_at               DateTime?
+
+  // Relations
+  user                     User          @relation(fields: [user_id], references: [user_id])
+  targetSchoolCollege      SchoolCollege? @relation(fields: [target_school_college_id], references: [school_college_id])
+
+  @@index([user_id])
+  @@index([stuff_type])
+  @@index([status])
+  @@index([created_at])
+  @@index([location_latitude, location_longitude])
+}
+
+///////////////////////
+// COMMUNICATION MODELS
+///////////////////////
+
+model Review {
+  review_id        String     @id @default(cuid())
+  reviewer_id      String
+  target_user_id   String
+  stuff_id         String?
+  trade_id         String?
+  
+  rating           Int        // 1-5 stars
+  title            String?
+  message          String?
+  type             ReviewType
+  
+  is_helpful_count Int        @default(0)
+  is_flagged       Boolean    @default(false)
+  
+  created_at       DateTime   @default(now())
+
+  // Relations
+  reviewer         User       @relation("ReviewerReviews", fields: [reviewer_id], references: [user_id])
+  target           User       @relation("TargetUserReviews", fields: [target_user_id], references: [user_id])
+  stuff            Stuff?     @relation(fields: [stuff_id], references: [stuff_id])
+
+  @@index([target_user_id])
+  @@index([stuff_id])
+  @@index([created_at])
+}
+
+model Message {
+  message_id       String    @id @default(cuid())
+  sender_id        String
+  receiver_id      String
+  offer_id         String?
+  trade_id         String?
+  
+  subject          String?
+  text             String
+  is_read          Boolean   @default(false)
+  trade_request_status   String?
+  
+  sent_at          DateTime  @default(now())
+
+  // Relations
+  sender           User      @relation("SentMessages", fields: [sender_id], references: [user_id])
+  receiver         User      @relation("ReceivedMessages", fields: [receiver_id], references: [user_id])
+  offer            Offer?    @relation(fields: [offer_id], references: [offer_id])
+
+  @@index([sender_id])
+  @@index([receiver_id])
+  @@index([sent_at])
+}
+
+model Notification {
+  notification_id    String           @id @default(cuid())
+  user_id            String
+  type               NotificationType
+  title              String
+  body               String
+  data               Json?            // Additional data for the notification
+  is_read            Boolean          @default(false)
+  created_at         DateTime         @default(now())
+
+  // Relations
+  user               User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, is_read])
+  @@index([created_at])
+}
+
+///////////////////////
+// UTILITY MODELS
+///////////////////////
+
+model Reminder {
+  reminder_id      String       @id @default(cuid())
+  user_id          String
+  trade_id         String?
+  
+  title            String
+  message          String
+  due_date         DateTime
+  type             ReminderType
+  
+  is_sent          Boolean      @default(false)
+  is_dismissed     Boolean      @default(false)
+  
+  created_at       DateTime     @default(now())
+
+  // Relations
+  user             User         @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, due_date])
+  @@index([is_sent])
+}
+
+model Activity {
+  activity_id      String     @id @default(cuid())
+  user_id          String
+  action_type      String     // OFFER_CREATED, TRADE_COMPLETED, etc.
+  entity_type      String?    // STUFF, TRADE, REVIEW, etc.
+  entity_id        String?
+  description      String?
+  metadata         Json?
+  timestamp        DateTime   @default(now())
+
+  // Relations
+  user             User       @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, timestamp])
+  @@index([action_type])
+}
+
+// model SafeDetails {
+//   safe_detail_id    String   @id @default(cuid())
+//   profile_id        String?
+  
+//   contact_name      String?
+//   contact_email     String
+//   contact_phone     String?
+//   pickup_address    String
+//   landmark          String?
+//   alternate_contact String?
+  
+//   latitude          Float?
+//   longitude         Float?
+  
+//   // Pickup Instructions
+//   pickup_instructions String?
+//   available_timings   String?
+  
+//   created_at        DateTime @default(now())
+//   updated_at        DateTime @updatedAt
+
+//   // Relations
+//   profile           Profile? @relation(fields: [profile_id], references: [profile_id])
+//   trades            Trade[]
+
+//   @@index([profile_id])
+// }
+
+// model Transaction {
+//   transaction_id     String            @id @default(cuid())
+//   trade_id           String            @unique
+//   user_id            String
+  
+//   amount             Float     
+//   currency           String            @default("INR")
+//   type               String            // RENT, SECURITY_DEPOSIT, LATE_FEE
+  
+//   // Payment Details
+//   payment_provider   String?           // STRIPE, RAZORPAY, MANUAL, etc.
+//   payment_intent_id  String?
+//   status             TransactionStatus @default(PENDING)
+  
+//   // Dates
+//   created_at         DateTime          @default(now())
+//   updated_at         DateTime          @updatedAt
+//   completed_at       DateTime?
+
+//   // Relations
+//   user               User              @relation(fields: [user_id], references: [user_id])
+//   trade              Trade             @relation(fields: [trade_id], references: [trade_id])
+
+//   @@index([user_id])
+//   @@index([status])
+//   @@index([created_at])
+// }
+
+///////////////////////
+// ANALYTICS & META
+///////////////////////
+
+model SearchAnalytics {
+  id              String   @id @default(cuid())
+  user_id         String?
+  search_query    String
+  stuff_type      StuffType?
+  location        String?
+  results_count   Int
+  clicked_offer_id String?
+  created_at      DateTime @default(now())
+
+  @@index([created_at])
+  @@index([search_query])
+}
+
+model SystemSettings {
+  key             String   @id
+  value           String
+  description     String?
+  updated_at      DateTime @updatedAt
+}

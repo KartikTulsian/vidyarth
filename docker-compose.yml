@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:17
+    container_name: vidyarth_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: vidyarth
+      POSTGRES_PASSWORD: vidyarth4036
+      POSTGRES_DB: vidyarthdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: nextjs_app
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://vidyarth:vidyarth4036@db:5432/vidyarthdb
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    command: >
+      sh -c "npx prisma migrate deploy && npx prisma db seed && npm start"
+
+volumes:
+  db_data:
