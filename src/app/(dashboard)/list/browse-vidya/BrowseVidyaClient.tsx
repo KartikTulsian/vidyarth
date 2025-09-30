@@ -439,10 +439,10 @@ export default function BrowseVidyaClient({ offers, userLocation }: BrowseVidyaP
                             <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                             <span>Electronics</span>
                         </div>
-                        <div className="flex items-center gap-2">
+                        {/* <div className="flex items-center gap-2">
                             <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                             <span>Your Location</span>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             </div>

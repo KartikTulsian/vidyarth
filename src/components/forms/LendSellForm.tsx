@@ -162,7 +162,7 @@ export default function LendSellForm({
             fieldsToValidate.push("stuff.author");
         }
 
-        const isStuffValid = await trigger(fieldsToValidate as (keyof StuffOfferSchema)[]);
+        const isStuffValid = await trigger(fieldsToValidate as GenericData);
 
         if (isStuffValid) {
             setCurrentStep('offer');
