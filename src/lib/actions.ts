@@ -22,14 +22,17 @@ export const createUserWithProfileSchool = async (
     if (!clerkUser) return { success: false, error: "No authenticated user found." };
     if (!data.user.password) return { success: false, error: "Password is required." };
 
+    const clerkId = clerkUser.id;
+    const clerkEmail = clerkUser.emailAddresses[0]?.emailAddress;
+
     const { user, profile } = data;
 
     const result = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
-          user_id: clerkUser.id,
-          clerk_id: clerkUser.id,
-          email: user.email,
+          user_id: clerkId,
+          clerk_id: clerkId,
+          email: clerkEmail || user.email,
           username: user.username,
           password: user.password,
           is_active: user.is_active ?? true,
@@ -351,7 +354,7 @@ export const updateStuffWithOffer = async (
             create: { name: tagName.toLowerCase().trim() },
             update: {},
           });
-          
+
           await tx.stuffTag.create({
             data: {
               stuff_id: updatedStuff.stuff_id,
@@ -636,22 +639,22 @@ export const createTrade = async (
       borrower_id: userId, // Securely add the lender ID from Clerk
       status: "PENDING", // Force status to PENDING on creation
     });
-    
+
     const offer = await prisma.offer.findUnique({
-        where: { offer_id: parsed.offer_id },
-        select: { 
-            stuff: { select: { owner_id: true } }, 
-            is_active: true,
-        },
+      where: { offer_id: parsed.offer_id },
+      select: {
+        stuff: { select: { owner_id: true } },
+        is_active: true,
+      },
     });
 
     if (!offer || !offer.is_active) {
-        return { success: false, error: "The offer is not active or does not exist." };
+      return { success: false, error: "The offer is not active or does not exist." };
     }
 
     // Ensure the lender ID matches the stuff owner's ID
     if (offer.stuff.owner_id !== parsed.lender_id) {
-        return { success: false, error: "You are not authorized to create a trade for this item." };
+      return { success: false, error: "You are not authorized to create a trade for this item." };
     }
 
     // Create the new trade request
@@ -699,27 +702,27 @@ export const updateTrade = async (
     }
 
     const dbUser = await prisma.user.findUnique({
-        where: { clerk_id: clerkUser.id },
-        select: { user_id: true }
+      where: { clerk_id: clerkUser.id },
+      select: { user_id: true }
     });
     if (!dbUser) {
-        return { success: false, error: "User not found." };
+      return { success: false, error: "User not found." };
     }
 
     const parsed = tradeSchema.parse(data);
 
     if (!parsed.trade_id) {
-        return { success: false, error: "Trade ID is required for update." };
+      return { success: false, error: "Trade ID is required for update." };
     }
 
     // Check if the current user is the lender or borrower of this trade
     const existingTrade = await prisma.trade.findUnique({
-        where: { trade_id: parsed.trade_id },
-        select: { lender_id: true, borrower_id: true },
+      where: { trade_id: parsed.trade_id },
+      select: { lender_id: true, borrower_id: true },
     });
 
     if (!existingTrade || (existingTrade.lender_id !== dbUser.user_id && existingTrade.borrower_id !== dbUser.user_id)) {
-        return { success: false, error: "You are not authorized to update this trade." };
+      return { success: false, error: "You are not authorized to update this trade." };
     }
 
     await prisma.trade.update({
@@ -756,7 +759,7 @@ export const deleteTrade = async (
   data: FormData
 ): Promise<CurrentState> => {
   const tradeId = data.get("trade_id") as string;
-  
+
   try {
     const clerkUser = await currentUser();
     if (!clerkUser) {
@@ -764,35 +767,35 @@ export const deleteTrade = async (
     }
 
     const dbUser = await prisma.user.findUnique({
-        where: { clerk_id: clerkUser.id },
-        select: { user_id: true }
+      where: { clerk_id: clerkUser.id },
+      select: { user_id: true }
     });
     if (!dbUser) {
-        return { success: false, error: "User not found." };
+      return { success: false, error: "User not found." };
     }
 
     const trade = await prisma.trade.findUnique({
-        where: { trade_id: tradeId },
-        select: { lender_id: true, status: true },
+      where: { trade_id: tradeId },
+      select: { lender_id: true, status: true },
     });
 
     if (!trade) {
-        return { success: false, error: "Trade not found." };
+      return { success: false, error: "Trade not found." };
     }
 
     if (trade.lender_id !== dbUser.user_id) {
-        return { success: false, error: "You are not authorized to delete this trade." };
+      return { success: false, error: "You are not authorized to delete this trade." };
     }
-    
+
     // Only allow deletion if the trade is in a PENDING or CANCELLED state
     if (trade.status !== TradeStatus.PENDING && trade.status !== TradeStatus.CANCELLED) {
-        return { success: false, error: "Cannot delete a trade that is in progress or completed." };
+      return { success: false, error: "Cannot delete a trade that is in progress or completed." };
     }
 
     await prisma.trade.delete({
       where: { trade_id: tradeId },
     });
-    
+
     return { success: true, error: false };
   } catch (err) {
     console.error("❌ Error deleting trade:", err);
@@ -862,7 +865,7 @@ export const deleteReminder = async (
   currentState: CurrentState,
   data: FormData
 ) => {
-    const id = data.get("id") as string;
+  const id = data.get("id") as string;
   try {
     await prisma.reminder.delete({
       where: {

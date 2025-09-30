@@ -31,7 +31,7 @@ type CloudinaryImageInfo = {
 interface CloudinaryWidget {
     close: () => void;
     // Add other methods if used, but 'close' is the essential one here
-    [key: string]: GenericData; 
+    [key: string]: GenericData;
 }
 
 const UserForm = ({
@@ -56,8 +56,9 @@ const UserForm = ({
         resolver: zodResolver(userProfileSchoolSchema) as Resolver<UserProfileSchoolSchema>,
         defaultValues: {
             user: {
-                password:"",
-                email: "",
+                password: "",
+                clerk_id: data?.user?.clerk_id || "", // <-- Populate clerk_id here
+                email: data?.user?.email || "",
                 username: "",
                 is_active: true,
             },
@@ -212,7 +213,7 @@ const UserForm = ({
                 ...formData.profile,
                 avatar_url: img?.secure_url || data.profile?.avatar_url,
             },
-            
+
             ...(type === "update" && data?.user?.user_id && { user_id: data.user.user_id }),
             ...(type === "update" && data?.profile?.profile_id && { profile_id: data.profile.profile_id }),
         };
@@ -244,7 +245,7 @@ const UserForm = ({
                 <>
                     <span className="text-xs text-gray-400 font-medium">Authentication Information</span>
                     <div className="flex flex-wrap gap-4">
-                        <InputField label="Email" name="user.email" type="email" register={register} error={errors.user?.email} />
+                        <InputField label="Email" name="user.email" type="email" register={register} error={errors.user?.email} readOnly />
                         <InputField label="Username" name="user.username" register={register} error={errors.user?.username} />
                         {type === "create" && (
                             <InputField label="Password" name="user.password" type="password" register={register} error={errors.user?.password} />
