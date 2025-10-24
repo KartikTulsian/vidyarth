@@ -211,6 +211,7 @@ async function main() {
 
   // Create Stuff Items
   console.log("📚 Creating stuff items...");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const stuffItems: any[] = [];
 
   // Books
