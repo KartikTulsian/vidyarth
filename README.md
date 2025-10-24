@@ -198,7 +198,7 @@ This project is part of an academic curriculum at IEM and is subject to institut
 ## 📞 Contact & Support
 
 For questions, support, or feedback:
-- 📧 Email: [kartiktulsian@example.com]
+- 📧 Email: [kartiktulsian0517@example.com]
 
 ---
 
